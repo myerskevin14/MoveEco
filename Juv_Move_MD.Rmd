@@ -1,0 +1,137 @@
+---
+title: "Pulling Juvenile Movement Data from Argos Units by Year"
+author: ""
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Libraries
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(sf)
+library(htmlwidgets)
+```
+
+## Load Data
+
+```{r}
+load("LoadDataWorkspace.RData")
+```
+
+## Pulling 2022 Satellite Data
+
+```{r}
+setwd("Z:/Golden Eagle Monitoring and Research/Transmitter Data/2022")
+
+read_file_with_name <- function(file_path) {
+  file_name <- basename(file_path)
+  data <- read.delim(file_path)
+  data$file_name <- file_name
+  return(data)
+}
+
+g_files22 <- list.files(pattern = "g.txt", recursive = TRUE, full.names = TRUE)
+new_list22 <- lapply(g_files22, read_file_with_name)
+
+sapply(new_list22, ncol)
+
+new_list22[95:112] <- NULL  # Remove problematic files
+combined_files22 <- do.call(rbind, new_list22)
+combined_files22 <- distinct(combined_files22)
+
+combined_files22 <- filter(combined_files22, file_name != "136668g.txt")
+
+setwd("~/EEB 627/MoveEco/GOEA_move")
+write.csv(combined_files22, "2022_move_data.csv")
+```
+
+## Pulling 2023 Cellular Data
+
+```{r}
+HT_23 <- read.csv("ht.csv")
+CR_23 <- read.csv("227453_crater.csv")
+RC_23 <- read.csv("227451_red.csv")
+LCC_23 <- read.csv("227455_lcc.csv")
+GV_23 <- read.csv("224447_gvsc.csv")
+RA_23 <- read.csv("224451_rapids.csv")
+
+birds_2023 <- rbind(HT_23, CR_23, RC_23, LCC_23, GV_23, RA_23)
+```
+
+## Pulling 2024 Cellular Data
+
+```{r}
+RA_24 <- read.csv("Rap_24.csv")
+HT_24 <- read.csv("Hard_24.csv")
+GV_24 <- read.csv("Gran_24.csv")
+RC_24 <- read.csv("Rock_24.csv")
+DM_24 <- read.csv("Dead_24.csv")
+CS_24 <- read.csv("Con_24.csv")
+
+birds_2024 <- rbind(RA_24, HT_24, GV_24, RC_24, DM_24, CS_24)
+```
+
+## Pulling 2024 Satellite Data
+
+```{r}
+data_a <- read.csv("GOEAA.csv", header = TRUE, sep = ";", stringsAsFactors = FALSE, row.names = NULL)
+```
+
+## Data Cleaning and Merging
+
+```{r}
+birds_2022 <- read.csv("2022_move_data.csv")
+birds_2022$file_name <- gsub("g.txt", "", birds_2022$file_name)
+
+birds_2022 <- birds_2022 %>%
+  rename(
+    unit = file_name,
+    date.time = Date.Time,
+    latitude = Latitude.N.,
+    longitude = Longitude.E.
+  ) %>%
+  filter(!unit %in% c(132247, 132245, 160226, 137702))
+
+birds_2023 <- birds_2023 %>%
+  rename(
+    unit = device_id,
+    date.time = UTC_datetime,
+    latitude = Latitude,
+    longitude = Longitude
+  )
+
+birds_2024 <- birds_2024 %>%
+  rename(
+    unit = device_id,
+    date.time = UTC_datetime,
+    latitude = Latitude,
+    longitude = Longitude
+  )
+
+birds_a <- data_a %>%
+  rename(
+    unit = PTT,
+    date.time = Location.date,
+    latitude = Latitude,
+    longitude = Longitude
+  )
+
+birds_2022 <- birds_2022 %>% select(unit, date.time, latitude, longitude)
+birds_2023 <- birds_2023 %>% select(unit, date.time, latitude, longitude)
+birds_2024 <- birds_2024 %>% select(unit, date.time, latitude, longitude)
+birds_a <- birds_a %>% select(unit, date.time, latitude, longitude)
+
+all_birds <- rbind(birds_2022, birds_2023, birds_2024, birds_a)
+write.csv(all_birds, "GOEA_move.csv")
+```
+
+## Save Workspace
+
+```{r}
+save.image(file = "LoadDataWorkspace.RData")
