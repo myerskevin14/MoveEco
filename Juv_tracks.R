@@ -48,11 +48,11 @@ records$disp <- dmy(records$disp_date)
 # Add a day so that we can ignore records from the trapping day #
 # and start only with  those from the following day:
 records$StartDate <- records$fledge + lubridate::days(20)
-records$EndDate <- records$disp + lubridate::days(20) ####Error: Incompatible classes: <character> + <Period> ###
+records$EndDate <- records$disp - lubridate::days(2) ####Error: Incompatible classes: <character> + <Period> ###
  ##########################################################################################
 #convert to day of year (1-366)
 records$StartDay <- lubridate::yday( records$StartDate )
-
+records$EndDay <- lubridate::yday( records$EndDate )
 #check 
 head( records); dim( records)
 
@@ -142,19 +142,29 @@ colnames(records)
 colnames(datadf)
 
 
-datadf <- records %>%  dplyr::select( unit, territory, sex, band, mass, hatch_date, fledge_date, StartDay ) %>% 
+datadf <- records %>%  
+  dplyr::select( unit, territory, sex, band, mass, hatch_date, 
+                 fledge_date, StartDay, EndDay ) %>% 
   right_join( datadf, by = "unit" )
 #view
 head( datadf ); dim( datadf )
 
-# filtered to breeding months Jan-Jun. Eagles are copulating and nest-building in January and young tend to fledge in May-July. (wide variation in hatch/fledge dates)
+# filtered by 20 days after fledging and 2 days before dispersal
 datadf <- datadf %>% 
   group_by( unit ) %>%
-  group_by(year) %>%
-  dplyr::filter( mth >= 5 & mth <= 8 ) %>% ungroup() # You need to ungroup for code to work later!!! # and possibly adjust months considered the "breeding season"
+  #group_by(year) %>%
+  dplyr::filter( jday >= StartDay ) %>% 
+  dplyr::filter( jday <= EndDay ) %>% 
+  #dplyr::filter( mth >= 5 & mth <= 8 ) %>% 
+  ungroup() # You need to ungroup for code to work later!!! # and possibly adjust months considered the "breeding season"
 
+table(datadf$unit)
+datadf %>% dplyr::filter( unit == 132255 ) %>% tail()
 #view
 tail( datadf ); dim( datadf )
+
+#3##### UP TO HERE@@@@@@@@
+
 # serial IDs are cumbersome so we create a new individual ID column:
 datadf <- datadf %>%
   group_by(unit, year) %>%
